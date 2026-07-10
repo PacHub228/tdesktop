@@ -384,11 +384,9 @@ void PPSettingsBox(
 		st::settingsButtonNoIcon);
 	addGift->setClickedCallback([=] {
 		const auto name = giftName->getLastText().trimmed();
-		controller->showToast({
-			.text = { name.isEmpty()
-				? QString("🎁 Подарок добавлен")
-				: QString("🎁 Подарок «%1» добавлен").arg(name) },
-		});
+		controller->showToast(name.isEmpty()
+			? QString("🎁 Подарок добавлен")
+			: QString("🎁 Подарок «%1» добавлен").arg(name));
 	});
 
 	Ui::AddSkip(container);
@@ -402,9 +400,17 @@ void PPSettingsBox(
 		rpl::single(QString("Выдать премиум")),
 		st::settingsButtonNoIcon);
 	premium->setClickedCallback([=] {
-		controller->showToast({
-			.text = { QString("⭐ Премиум выдан на 12 месяцев") },
-		});
+		const auto self = controller->session().user();
+		if (self->isPremium()) {
+			self->setFlags(self->flags() & ~UserDataFlag::Premium);
+			controller->showToast(
+				QString("⭐ Локальный премиум выключен"));
+		} else {
+			self->addFlags(UserDataFlag::Premium);
+			controller->showToast(QString("⭐ Локальный премиум включён. "
+				"Виден только у вас; серверные функции (премиум-стикеры "
+				"и т.п.) работать не будут."));
+		}
 	});
 
 	Ui::AddSkip(container);
@@ -436,7 +442,7 @@ void BuildSectionButtons(SectionBuilder &builder) {
 	builder.addButton({
 		.id = u"main/pp"_q,
 		.title = rpl::single(QString("PP настройки")),
-		.icon = { &st::menuIconGift },
+		.icon = { &st::menuIconGiftPremium },
 		.onClick = [=] {
 			controller->show(Box(PPSettingsBox, controller));
 		},
