@@ -477,8 +477,8 @@ void PPSettingsBox(
 			self->addFlags(UserDataFlag::Premium);
 			premiumGuard.destroy();
 			self->flagsValue(
-			) | rpl::on_next([=](UserDataFlags flags) {
-				if (premiumOn && !(flags & UserDataFlag::Premium)) {
+			) | rpl::on_next([=](const auto &change) {
+				if (premiumOn && !(change.value & UserDataFlag::Premium)) {
 					self->addFlags(UserDataFlag::Premium);
 				}
 			}, premiumGuard);
