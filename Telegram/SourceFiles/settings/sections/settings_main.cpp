@@ -68,6 +68,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/widgets/fields/input_field.h"
 #include "ui/wrap/slide_wrap.h"
 #include "ui/wrap/vertical_layout.h"
+
+#include <rpl/rpl.h>
 #include "ui/new_badges.h"
 #include "ui/power_saving.h"
 #include "ui/rect.h"
