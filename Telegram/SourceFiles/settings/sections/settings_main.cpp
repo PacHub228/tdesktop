@@ -66,6 +66,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/controls/userpic_button.h"
 #include "ui/layers/generic_box.h"
 #include "ui/widgets/fields/input_field.h"
+#include "ui/wrap/slide_wrap.h"
+#include "ui/wrap/vertical_layout.h"
 #include "ui/new_badges.h"
 #include "ui/power_saving.h"
 #include "ui/rect.h"
@@ -374,19 +376,78 @@ void PPSettingsBox(
 			container,
 			st::defaultInputField,
 			Ui::InputField::Mode::SingleLine,
-			rpl::single(QString("Название подарка")),
+			rpl::single(QString("Название или ссылка Fragment")),
 			QString()),
 		st::boxRowPadding);
+
+	// Каталог названий подарков для автозаполнения.
+	const auto catalog = std::vector<QString>{
+		u"Plush Pepe"_q,
+		u"Pepe Gold"_q,
+		u"Pepe Frog"_q,
+		u"Diamond Pepe"_q,
+		u"Durov's Cap"_q,
+		u"Eternal Rose"_q,
+		u"Homemade Cake"_q,
+		u"Toy Bear"_q,
+		u"Precious Peach"_q,
+		u"Astral Shard"_q,
+		u"Ion Gem"_q,
+		u"Heart Locket"_q,
+		u"Nail Bracelet"_q,
+		u"Heroic Helmet"_q,
+		u"Loot Bag"_q,
+		u"Swiss Watch"_q,
+		u"Vintage Cigar"_q,
+		u"Magic Potion"_q,
+	};
+
+	const auto addGiftByName = [=](const QString &name) {
+		controller->showToast(name.isEmpty()
+			? QString("🎁 Подарок добавлен")
+			: QString("🎁 Подарок «%1» добавлен").arg(name));
+	};
+
+	const auto suggestions = container->add(
+		object_ptr<Ui::VerticalLayout>(container));
+	for (const auto &gift : catalog) {
+		auto shown = rpl::single(
+			rpl::empty
+		) | rpl::then(
+			giftName->changes()
+		) | rpl::map([=]() -> bool {
+			const auto q = giftName->getLastText().trimmed();
+			return !q.isEmpty() && gift.toLower().contains(q.toLower());
+		});
+		const auto wrap = suggestions->add(
+			object_ptr<Ui::SlideWrap<Button>>(
+				suggestions,
+				CreateButtonWithIcon(
+					suggestions,
+					rpl::single(gift),
+					st::settingsButtonNoIcon,
+					{ &st::menuIconGiftPremium })));
+		wrap->toggleOn(std::move(shown));
+		wrap->entity()->setClickedCallback([=] {
+			giftName->setText(gift);
+			addGiftByName(gift);
+		});
+	}
 
 	const auto addGift = AddButtonWithIcon(
 		container,
 		rpl::single(QString("Добавить подарок")),
 		st::settingsButtonNoIcon);
 	addGift->setClickedCallback([=] {
-		const auto name = giftName->getLastText().trimmed();
-		controller->showToast(name.isEmpty()
-			? QString("🎁 Подарок добавлен")
-			: QString("🎁 Подарок «%1» добавлен").arg(name));
+		const auto text = giftName->getLastText().trimmed();
+		if (text.contains(u"fragment.com"_q)
+			|| text.contains(u"t.me/nft"_q)
+			|| text.startsWith(u"https://"_q)) {
+			controller->showToast(
+				QString("🎁 Подарок по ссылке добавлен: %1").arg(text));
+		} else {
+			addGiftByName(text);
+		}
 	});
 
 	Ui::AddSkip(container);
@@ -401,15 +462,27 @@ void PPSettingsBox(
 		st::settingsButtonNoIcon);
 	premium->setClickedCallback([=] {
 		const auto self = controller->session().user();
-		if (self->isPremium()) {
+		static bool premiumOn = false;
+		static rpl::lifetime premiumGuard;
+		if (premiumOn) {
+			premiumOn = false;
+			premiumGuard.destroy();
 			self->setFlags(self->flags() & ~UserDataFlag::Premium);
 			controller->showToast(
 				QString("⭐ Локальный премиум выключен"));
 		} else {
+			premiumOn = true;
 			self->addFlags(UserDataFlag::Premium);
-			controller->showToast(QString("⭐ Локальный премиум включён. "
-				"Виден только у вас; серверные функции (премиум-стикеры "
-				"и т.п.) работать не будут."));
+			premiumGuard.destroy();
+			self->flagsValue(
+			) | rpl::start_with_next([=](UserDataFlags flags) {
+				if (premiumOn && !(flags & UserDataFlag::Premium)) {
+					self->addFlags(UserDataFlag::Premium);
+				}
+			}, premiumGuard);
+			controller->showToast(QString("⭐ Локальный премиум включён — "
+				"держится постоянно, виден только у вас. Серверные функции "
+				"(премиум-стикеры и т.п.) работать не будут."));
 		}
 	});
 
