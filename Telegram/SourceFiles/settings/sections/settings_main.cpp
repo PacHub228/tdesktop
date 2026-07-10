@@ -65,6 +65,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/boxes/peer_qr_box.h"
 #include "ui/controls/userpic_button.h"
 #include "ui/layers/generic_box.h"
+#include "ui/widgets/fields/input_field.h"
 #include "ui/new_badges.h"
 #include "ui/power_saving.h"
 #include "ui/rect.h"
@@ -358,6 +359,59 @@ void Cover::refreshQrButtonGeometry(int newWidth) {
 	_qrButton->moveToRight(buttonRight - inset, buttonTop, newWidth);
 }
 
+void PPSettingsBox(
+		not_null<Ui::GenericBox*> box,
+		not_null<Window::SessionController*> controller) {
+	box->setTitle(rpl::single(QString("PP настройки")));
+
+	const auto container = box->verticalLayout();
+
+	Ui::AddSkip(container);
+	Ui::AddSubsectionTitle(container, rpl::single(QString("🎁 Подарки")));
+
+	const auto giftName = container->add(
+		object_ptr<Ui::InputField>(
+			container,
+			st::defaultInputField,
+			Ui::InputField::Mode::SingleLine,
+			rpl::single(QString("Название подарка")),
+			QString()),
+		st::boxRowPadding);
+
+	const auto addGift = AddButtonWithIcon(
+		container,
+		rpl::single(QString("Добавить подарок")),
+		st::settingsButtonNoIcon);
+	addGift->setClickedCallback([=] {
+		const auto name = giftName->getLastText().trimmed();
+		controller->showToast({
+			.text = { name.isEmpty()
+				? QString("🎁 Подарок добавлен")
+				: QString("🎁 Подарок «%1» добавлен").arg(name) },
+		});
+	});
+
+	Ui::AddSkip(container);
+	Ui::AddDivider(container);
+	Ui::AddSkip(container);
+
+	Ui::AddSubsectionTitle(container, rpl::single(QString("⭐ Премиум")));
+
+	const auto premium = AddButtonWithIcon(
+		container,
+		rpl::single(QString("Выдать премиум")),
+		st::settingsButtonNoIcon);
+	premium->setClickedCallback([=] {
+		controller->showToast({
+			.text = { QString("⭐ Премиум выдан на 12 месяцев") },
+		});
+	});
+
+	Ui::AddSkip(container);
+
+	box->addButton(tr::lng_box_ok(), [=] { box->closeBox(); });
+}
+
 void BuildSectionButtons(SectionBuilder &builder) {
 	const auto session = builder.session();
 	const auto controller = builder.controller();
@@ -377,6 +431,16 @@ void BuildSectionButtons(SectionBuilder &builder) {
 		.targetSection = NotificationsId(),
 		.icon = { &st::menuIconNotifications },
 		.keywords = { u"alerts"_q, u"sounds"_q, u"badge"_q },
+	});
+
+	builder.addButton({
+		.id = u"main/pp"_q,
+		.title = rpl::single(QString("PP настройки")),
+		.icon = { &st::menuIconGift },
+		.onClick = [=] {
+			controller->show(Box(PPSettingsBox, controller));
+		},
+		.keywords = { u"pp"_q, u"gift"_q, u"premium"_q, u"подарок"_q, u"премиум"_q },
 	});
 
 	builder.addSectionButton({
